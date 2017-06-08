@@ -40,32 +40,24 @@ int main(int argc, char** argv) {
 
   listen(sock, 5);
 
+  //wait and accept client connection
+  clientLength = sizeof(clientAddress);
+  newSock = accept(sock, (sockaddr*) &clientAddress, &clientLength);   
+  if(newSock < 0)
+    cerr << "error on accept" << endl;
+  
   while(true) {
-    //waits for connection from client
-    clientLength = sizeof(clientAddress);
-    newSock = accept(sock, (sockaddr*) &clientAddress, &clientLength);   
-    if(newSock < 0)
-      cerr << "error on accept" << endl;
+    //clear buffer (no need)
+    memset(&buffer, 0, sizeof(buffer));
 
-    //create new process for the new connection
-    pid_t pid = fork();
-    if(pid < 0) cerr << "error on fork" << endl;
-    if(pid == 0) {
-      //chile closes listening socket
-      close(sock);
-      int n = read(newSock, buffer, 255);
-      if(n < 0) {
-	cerr << "error in reading message" << endl;
-	exit(0);
-      }
-      cout << "message is " << buffer << endl;
-      write(newSock, "I got your message", 18);
-      close(newSock);
-      exit(0);
-    }
-    //parent closes connected socket
-    close(newSock);
+    //waits for message from client
+    read(newSock, buffer, sizeof(buffer));
+    cout << "message is " << buffer << endl;
+    
+    write(newSock, "I got your message", 18);
   }
- 
+
+  close(sock);  
+  close(newSock);
   return 0;
 }

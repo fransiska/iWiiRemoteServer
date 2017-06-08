@@ -45,18 +45,29 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  cout << "Please type the message: ";
-  getline(cin, message);
+  while(true) {
+    cout << "Please type the message: ";
+    getline(cin, message);
 
-  int n = write(sock, message.c_str(), message.length());
-  if(n < 0)
-    cerr << "error writing to socket" << endl;
+    if(message.length() == 0) {
+      close(sock);
+      return 0;
+    }      
 
-  n = read(sock, buffer, 255);
-  if(n < 0)
-    cerr << "error reading from socket" << endl;
-  cout << buffer << endl;
-    
+    int n = write(sock, message.c_str(), message.length());
+    if(n < 0) {
+      cerr << "error writing to socket" << endl;
+      return 1;
+    }
+
+    n = read(sock, buffer, 255);
+    if(n < 0) {
+      cerr << "error reading from socket" << endl;
+      return 1;
+    }
+    cout << buffer << endl;    
+  }
+  
   close(sock);
   return 0;
 }
