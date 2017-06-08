@@ -50,8 +50,8 @@ int main(int argc, char** argv) {
     getline(cin, message);
 
     if(message.length() == 0) {
-      close(sock);
-      return 0;
+      cout << "quitting" << endl;
+      break;
     }      
 
     int n = write(sock, message.c_str(), message.length());

@@ -52,6 +52,11 @@ int main(int argc, char** argv) {
 
     //waits for message from client
     read(newSock, buffer, sizeof(buffer));
+    if(strlen(buffer) == 0) {
+      cout << "quitting" << endl;
+      break;
+    }
+    
     cout << "message is " << buffer << endl;
     
     write(newSock, "I got your message", 18);
