@@ -39,22 +39,33 @@ int main(int argc, char** argv) {
     cerr << "error on binding" << endl;
 
   listen(sock, 5);
-  clientLength = sizeof(clientAddress);
-  newSock = accept(sock, (sockaddr*) &clientAddress, &clientLength);
 
-  if(newSock < 0)
-    cerr << "error on accept" << endl;
+  while(true) {
+    //waits for connection from client
+    clientLength = sizeof(clientAddress);
+    newSock = accept(sock, (sockaddr*) &clientAddress, &clientLength);   
+    if(newSock < 0)
+      cerr << "error on accept" << endl;
 
-  int n = read(newSock, buffer, 255);
-  if(n < 0)
-    cerr << "error reading from socket" << endl;
-  cout << "message is " << buffer << endl;
-
-  n = write(newSock, "I got your message", 18);
-  if(n < 0)
-    cerr << "error writing to socket" << endl;
-
-  close(newSock);
-  close(sock);
+    //create new process for the new connection
+    pid_t pid = fork();
+    if(pid < 0) cerr << "error on fork" << endl;
+    if(pid == 0) {
+      //chile closes listening socket
+      close(sock);
+      int n = read(newSock, buffer, 255);
+      if(n < 0) {
+	cerr << "error in reading message" << endl;
+	exit(0);
+      }
+      cout << "message is " << buffer << endl;
+      write(newSock, "I got your message", 18);
+      close(newSock);
+      exit(0);
+    }
+    //parent closes connected socket
+    close(newSock);
+  }
+ 
   return 0;
 }
