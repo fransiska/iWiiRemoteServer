@@ -7,6 +7,48 @@
 
 using namespace std;
 
+class MessageReader {
+  const int &sock;
+  std::string &message;
+  const char terminator;
+  int bufferStart;
+  int bufferEnd;
+  char buffer[256];
+public:
+  MessageReader(const int &psock, string& pmessage, const char pterminator):
+    sock(psock), message(pmessage), terminator(pterminator), bufferStart(0), bufferEnd(0) {
+  }
+
+  bool checkMessage() {
+    for(;bufferStart<bufferEnd;bufferStart++) {
+      if(buffer[bufferStart] == terminator && message.length()>0) {	
+	bufferStart++;
+	return true;
+      }
+      if(buffer[bufferStart] == terminator) continue;
+      message += buffer[bufferStart];
+    }
+    return false;
+  }
+
+  bool readMessage() {
+    while(true) {
+      //terminator found, so exit
+      if(checkMessage()) {
+	return true;
+      }
+      //waits for message from client
+      bufferStart = 0;
+      bufferEnd = read(sock, buffer, sizeof(buffer));
+      if(bufferEnd <= 0) {
+	return false;
+      }
+    }
+  }
+  
+};
+
+
 int main(int argc, char** argv) {
   int sock, newSock, portno;
   char buffer[256];
@@ -46,22 +88,16 @@ int main(int argc, char** argv) {
   if(newSock < 0)
     cerr << "error on accept" << endl;
   
-  while(true) {
-    //clear buffer (no need)
-    memset(&buffer, 0, sizeof(buffer));
-
-    //waits for message from client
-    read(newSock, buffer, sizeof(buffer));
-    if(strlen(buffer) == 0) {
-      cout << "quitting" << endl;
-      break;
-    }
-    
-    cout << "message is " << buffer << endl;
-    
-    write(newSock, "I got your message", 18);
+  string message = "";
+  MessageReader messageReader(newSock, message, ';');
+  
+  while(messageReader.readMessage()) {
+    do {
+      cout << "> " << message << endl;
+      message.clear();
+    }while(messageReader.checkMessage());
   }
-
+  
   close(sock);  
   close(newSock);
   return 0;
