@@ -4,8 +4,50 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+//#include <chrono>
+//#include <regex>
+#include <deque>
+#include <cmath>
 
 using namespace std;
+
+enum MouseDirection{up,down,left,right};
+
+class GyroInterpreter {
+  //roll = -90 (left) to 90 (right)
+  //pitch = 90(up) to -90 (down)
+
+  void convertAngle(double &d, int pixel) {
+    if(d<-90) {
+      d = -90;
+    } else if(d>90) {
+      d = 90;
+    }
+    if(abs(d) < 30) {
+      d = 0;
+    }
+    d /= 90.0;
+    d = round(d*pixel);
+  }
+public:
+  std::string interpretAbsolute(const std::string message) {
+    return "";
+  }
+  std::string interpretRelative(const std::string message) {
+    double r,p;
+    char c;
+    std::stringstream ss,so;
+    ss << message;
+    ss >> c >> c >> r >> c >> c >> p;
+
+    convertAngle(r,30);
+    convertAngle(p,30);
+
+    so << "cliclick m:";
+    so << (r>=0?"+":"") << r << "," << (p>=0?"":"+") << (p*-1);
+    return so.str();
+  }
+};
 
 class MessageReader {
   const int &sock;
@@ -90,12 +132,29 @@ int main(int argc, char** argv) {
   
   string message = "";
   MessageReader messageReader(newSock, message, ';');
-  
+  GyroInterpreter gyroInterpreter;
+  int i=0;
   while(messageReader.readMessage()) {
+    //std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
     do {
-      cout << "> " << message << endl;
+      //process message here
+      if(message == "leftclick") {
+	system("cliclick c:.");
+      }
+      else if(message == "rightclick") {
+	system("cliclick kd:ctrl c:. ku:ctrl");
+      }
+      else {
+	//skip 10 updates
+	if(i>10) {
+	  system(gyroInterpreter.interpretRelative(message).c_str());
+	  i = 0;
+	}
+      }//else
+      i++;
       message.clear();
     }while(messageReader.checkMessage());
+    i++;
   }
   
   close(sock);  
