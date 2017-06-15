@@ -8,46 +8,79 @@
 //#include <regex>
 #include <deque>
 #include <cmath>
+#include <vector>
 
 using namespace std;
-
-enum MouseDirection{up,down,left,right};
 
 class GyroInterpreter {
   //roll = -90 (left) to 90 (right)
   //pitch = 90(up) to -90 (down)
-
-  void convertAngle(double &d, int pixel) {
-    if(d<-90) {
-      d = -90;
-    } else if(d>90) {
-      d = 90;
+  const double thresholdAngle;
+  const double minLimitAngle;
+  const double maxLimitAngle;
+  std::vector<std::pair<double,double> > limits;
+  
+  void normalizeAngle(double &d, int limitId) {
+    if(d<minLimitAngle) {
+      d = minLimitAngle;
+    } else if(d>maxLimitAngle) {
+      d = maxLimitAngle;
     }
-    if(abs(d) < 30) {
+    if(abs(d) < thresholdAngle) {
       d = 0;
     }
-    d /= 90.0;
-    d = round(d*pixel);
+    //cout << d << " | ";
+    d = d - minLimitAngle;
+    //cout << d << " * " << (limits[limitId].second-limits[limitId].first)/(maxLimitAngle-minLimitAngle) << "  ";
+    d = (limits[limitId].second-limits[limitId].first)/(maxLimitAngle-minLimitAngle)*d;
+    //cout << d << "  ";
+    d = round(limits[limitId].first+d);
+    //cout << d << " |  ";
+  }
+  virtual void format(std::stringstream &so, double &r, double &p) {
+    so << r << "," << p;
   }
 public:
-  std::string interpretAbsolute(const std::string message) {
-    return "";
+  GyroInterpreter(double pthresholdAngle, double xLimitMin, double xLimitMax, double yLimitMin, double yLimitMax):
+    thresholdAngle(pthresholdAngle),minLimitAngle(-90),maxLimitAngle(90)
+  {
+    limits.push_back(std::pair<double,double>(xLimitMin,xLimitMax));
+    limits.push_back(std::pair<double,double>(yLimitMin,yLimitMax));    
   }
-  std::string interpretRelative(const std::string message) {
+  virtual std::string interpret(const std::string message) {
     double r,p;
     char c;
     std::stringstream ss,so;
     ss << message;
     ss >> c >> c >> r >> c >> c >> p;
 
-    convertAngle(r,30);
-    convertAngle(p,30);
+    cout << r << " " << p << "   ";
+    normalizeAngle(r,0);
+    normalizeAngle(p,1);
 
     so << "cliclick m:";
-    so << (r>=0?"+":"") << r << "," << (p>=0?"":"+") << (p*-1);
+    format(so,r,p);
+    cout << so.str() << endl;
     return so.str();
+  }    
+};
+
+class GyroInterpreterAbsolute: public GyroInterpreter {
+public:
+  GyroInterpreterAbsolute():GyroInterpreter(0,0,1600,1050,0) {
   }
 };
+  
+class GyroInterpreterRelative: public GyroInterpreter {
+  void format(std::stringstream &so, double &r, double &p) {
+    so << (r>=0?"+":"") << r << "," << (p>=0?"+":"") << p;
+  }
+public:
+  GyroInterpreterRelative():GyroInterpreter(30,-30,30,30,-30) {
+  }			    
+};
+  
+
 
 class MessageReader {
   const int &sock;
@@ -132,7 +165,8 @@ int main(int argc, char** argv) {
   
   string message = "";
   MessageReader messageReader(newSock, message, ';');
-  GyroInterpreter gyroInterpreter;
+  //GyroInterpreterAbsolute gyroInterpreter;
+  GyroInterpreterRelative gyroInterpreter;
   int i=0;
   while(messageReader.readMessage()) {
     //std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
@@ -147,7 +181,7 @@ int main(int argc, char** argv) {
       else {
 	//skip 10 updates
 	if(i>10) {
-	  system(gyroInterpreter.interpretRelative(message).c_str());
+	  system(gyroInterpreter.interpret(message).c_str());
 	  i = 0;
 	}
       }//else
